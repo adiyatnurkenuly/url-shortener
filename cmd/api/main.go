@@ -117,6 +117,76 @@ func (a *App) redirect(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, originalURL, http.StatusFound)
 }
 
+func (a *App) getStats(w http.ResponseWriter, r *http.Request) {
+	code := r.PathValue("code")
+
+	var originalURL string
+	var clicks int64
+	var createdAt time.Time
+
+	err := a.db.QueryRowContext(
+		r.Context(),
+		`SELECT original_url, clicks, created_at
+		 FROM links
+		 WHERE code = $1`,
+		code,
+	).Scan(
+		&originalURL,
+		&clicks,
+		&createdAt,
+	)
+
+	if errors.Is(err, sql.ErrNoRows) {
+		http.Error(w, "Link not found", http.StatusNotFound)
+		return
+	}
+
+	if err != nil {
+		log.Println(err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"code":         code,
+		"original_url": originalURL,
+		"clicks":       clicks,
+		"created_at":   createdAt,
+	})
+}
+
+func (a *App) deleteLink(w http.ResponseWriter, r *http.Request) {
+	code := r.PathValue("code")
+
+	result, err := a.db.ExecContext(
+		r.Context(),
+		"DELETE FROM links WHERE code = $1",
+		code,
+	)
+
+	if err != nil {
+		log.Println(err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	affected, err := result.RowsAffected()
+	if err != nil {
+		log.Println(err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	if affected == 0 {
+		http.Error(w, "Link not found", http.StatusNotFound)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func main() {
 	databaseURL := os.Getenv("DATABASE_URL")
 	if databaseURL == "" {
@@ -148,6 +218,8 @@ func main() {
 	})
 
 	mux.HandleFunc("POST /links", app.createLink)
+	mux.HandleFunc("GET /links/{code}/stats", app.getStats)
+	mux.HandleFunc("DELETE /links/{code}", app.deleteLink)
 	mux.HandleFunc("GET /{code}", app.redirect)
 
 	server := &http.Server{
