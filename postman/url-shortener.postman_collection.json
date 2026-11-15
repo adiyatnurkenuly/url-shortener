@@ -1,0 +1,213 @@
+{
+  "info": {
+    "_postman_id": "772d2b53-4b8b-4472-9a93-15ef26e54d5a",
+    "name": "URL Shortener API",
+    "description": "Local demo collection for the Go URL Shortener portfolio project. Run in numeric order.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "01 - Health",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/health",
+        "description": "01 - Health"
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Health returns 200\", function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 - Create Link",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/links",
+        "description": "02 - Create Link",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"url\": \"https://example.com\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Creates link (201)\", function () { pm.response.to.have.status(201); });",
+              "if (pm.response.code === 201) {",
+              "  const data = pm.response.json();",
+              "  pm.test(\"Response has a short code\", function () { pm.expect(data.code).to.be.a(\"string\").and.not.empty; });",
+              "  if (data.code) { pm.collectionVariables.set(\"shortCode\", data.code); }",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 - Redirect (302)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/{{shortCode}}",
+        "description": "03 - Redirect (302)"
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Redirect returns 302\", function () { pm.response.to.have.status(302); });",
+              "pm.test(\"Location is the original URL\", function () { pm.expect(pm.response.headers.get(\"Location\")).to.eql(\"https://example.com\"); });"
+            ]
+          }
+        }
+      ],
+      "protocolProfileBehavior": {
+        "followRedirects": false
+      }
+    },
+    {
+      "name": "04 - Get Stats",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/links/{{shortCode}}/stats",
+        "description": "04 - Get Stats"
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Stats return 200\", function () { pm.response.to.have.status(200); });",
+              "if (pm.response.code === 200) {",
+              "  const data = pm.response.json();",
+              "  pm.test(\"Click counter incremented\", function () { pm.expect(data.clicks).to.be.at.least(1); });",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 - Invalid URL (400)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/links",
+        "description": "05 - Invalid URL (400)",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"url\": \"not-a-valid-url\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Rejects invalid URL\", function () { pm.response.to.have.status(400); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 - Delete Link",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": "{{baseUrl}}/links/{{shortCode}}",
+        "description": "06 - Delete Link"
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Deletes existing link\", function () { pm.response.to.have.status(204); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 - Verify Deleted (404)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/links/{{shortCode}}/stats",
+        "description": "07 - Verify Deleted (404)"
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Deleted link returns 404\", function () { pm.response.to.have.status(404); });"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8081",
+      "type": "string"
+    },
+    {
+      "key": "shortCode",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "auth": {
+    "type": "noauth"
+  }
+}
