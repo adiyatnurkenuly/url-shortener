@@ -1,0 +1,31 @@
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: urluser
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      POSTGRES_DB: url_shortener
+    ports:
+      - "127.0.0.1:5434:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations/001_init.sql:/docker-entrypoint-initdb.d/001_init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U urluser -d url_shortener"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    ports:
+      - "127.0.0.1:8081:8081"
+    environment:
+      DATABASE_URL: "postgres://urluser:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@db:5432/url_shortener?sslmode=disable"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
